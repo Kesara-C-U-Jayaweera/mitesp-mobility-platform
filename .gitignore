@@ -1,0 +1,35 @@
+# Environment variables & API Keys (CRITICAL: Do NOT commit secrets!)
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python cache & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Historical model versions (archive)
+models/model_v1.pkl
+models/model_v2.pkl
+models/model_v3.pkl
+models/model_v4.pkl
+
+# Confidential Corporate Excel / CSV files with PII (phone numbers, costs)
+# Keep only sample/template data in git; keep production files local or in cloud storage
+*.xlsx
+Pickme*.xlsx
+data/*.xlsx
+# If you want to commit base history.csv, you can; otherwise keep proprietary logs private:
+# data/new_trips.csv
+
+# Docker & IDE
+.dockerignore
+.idea/
+.vscode/
+*.swp

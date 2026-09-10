@@ -1,0 +1,27 @@
+{
+  "version": 3,
+  "trained_at": "2026-09-10T09:35:16.348917",
+  "training_duration_sec": 32.7,
+  "data_sources": [
+    {
+      "file": "Pickme cost - Apr-Aug 2026 (Test) (2).xlsx",
+      "rows": 8012,
+      "type": "xlsx"
+    },
+    {
+      "file": "history.csv",
+      "rows": 89,
+      "type": "csv"
+    }
+  ],
+  "total_raw_rows": 8101,
+  "unique_training_rows": 6488,
+  "unique_passengers": 403,
+  "unique_locations": 1003,
+  "train_accuracy": 54.45,
+  "validation_accuracy": 40.6,
+  "train_size": 5190,
+  "test_size": 1298,
+  "model_file": "model_v3.pkl",
+  "encoders_file": "encoders_v3.pkl"
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "MIT ESP HQ (Col 03)",
+    "address": "No. 450D, R A De Mel Mawatha, Colombo 3, Colombo 00300, Sri Lanka",
+    "icon": "🏢",
+    "is_hq": true
+  },
+  {
+    "name": "MIT ESP Malabe",
+    "address": "MillenniumIT ESP Campus, Malabe, Sri Lanka",
+    "icon": "🌳",
+    "is_hq": false
+  },
+  {
+    "name": "Sampath Bank HO",
+    "address": "Sampath Bank Head Office, Colombo",
+    "icon": "🏦",
+    "is_hq": false
+  },
+  {
+    "name": "WTC Colombo",
+    "address": "World Trade Center, Colombo 01",
+    "icon": "🏙️",
+    "is_hq": false
+  }
+]

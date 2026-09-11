@@ -31,13 +31,42 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
     }
 
-    /* Top Streamlit Header */
+    /* Top Streamlit Header Clearance */
     header[data-testid="stHeader"] {
-        background-color: #07090E !important;
+        background-color: rgba(7, 9, 14, 0.95) !important;
+        backdrop-filter: blur(14px) !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        z-index: 99999 !important;
     }
     header[data-testid="stHeader"] * {
         color: #F8FAFC !important;
+    }
+
+    .block-container {
+        padding-top: 5.5rem !important;
+        padding-bottom: 3rem !important;
+        max-width: 100% !important;
+    }
+
+    @media (max-width: 768px) {
+        .block-container {
+            padding-top: 6.2rem !important;
+            padding-left: 0.8rem !important;
+            padding-right: 0.8rem !important;
+        }
+    }
+
+    /* Hide intrusive Streamlit form input instructions that cause text overlap on mobile */
+    div[data-testid="InputInstructions"], [data-testid="InputInstructions"] {
+        display: none !important;
+    }
+
+    /* Responsive map iframes */
+    iframe[title="streamlit_folium.st_folium"], 
+    .stFolium, 
+    div[data-testid="stIFrame"] {
+        width: 100% !important;
+        border-radius: 14px !important;
     }
 
     .stApp {
@@ -1355,15 +1384,21 @@ def cb_autofill_staff_drops(employee_list):
             st.session_state[f"p{s_idx}_drop"] = p_loc
             st.session_state[f"p{s_idx}_ml_notice"] = f"🎯 Auto-filled for {m_name}: {p_loc}"
 
-# --- Dual-Panel Mission Control Workspace ---
-col_dispatch, col_map = st.columns([5, 7], gap="large")
+# Default num_passengers fallback so both tabs always have access
+num_passengers = st.session_state.get("num_passengers_val", 3)
 
-with col_dispatch:
+# --- Responsive Mission Control Workspace (Tabs for Clean Mobile & Desktop UX) ---
+tab_dispatch, tab_map = st.tabs([
+    "🚖 1. Route & Passenger Dispatch", 
+    "🗺️ 2. Live Transit Map & Tap-to-Pin"
+])
+
+with tab_dispatch:
     # 📍 Card 1: Pickup Location
     st.markdown('<div class="mit-card"><div class="mit-card-title">📍 Step 1: Pickup Location (Anywhere in Sri Lanka)</div>', unsafe_allow_html=True)
     col_p_in, col_p_hq = st.columns([3.3, 1.2])
     with col_p_in:
-        pickup = st.text_input("Pickup Address", key="pickup_address", placeholder="e.g. No. 450D, R A De Mel Mawatha, Colombo 3 or Kandy City Centre", label_visibility="collapsed")
+        pickup = st.text_input("Pickup Address", key="pickup_address", placeholder="e.g. Colombo 03, Kandy, or tap map", label_visibility="collapsed")
     with col_p_hq:
         st.button("🏢 Set to HQ", on_click=cb_set_pickup, args=(HQ_ADDRESS,), help="Quick-set pickup to MillenniumIT ESP Headquarters (Colombo 03)", use_container_width=True)
     
@@ -1445,7 +1480,7 @@ with col_dispatch:
     
     col_p_count, col_p_quick1, col_p_quick2 = st.columns([1.2, 1, 1])
     with col_p_count:
-        num_passengers = st.selectbox("Number of Passengers to Pool", [1, 2, 3, 4, 5, 6], index=2)
+        num_passengers = st.selectbox("Number of Passengers to Pool", [1, 2, 3, 4, 5, 6], index=2, key="num_passengers_val")
     with col_p_quick1:
         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
         employee_names = get_employee_names()
@@ -1471,7 +1506,7 @@ with col_dispatch:
             st.text_input(
                 f"Passenger {i} Drop-off",
                 key=f"p{i}_drop",
-                placeholder="Type address or pick recent below"
+                placeholder="e.g. Nugegoda, Kandy, or tap map"
             )
         with col3:
             st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
@@ -1544,41 +1579,15 @@ with col_dispatch:
                 else:
                     st.error("Retraining failed:\n" + _result.stderr[:200])
 
-    # Feature: Map Pin-Picker
-    with st.expander("📍 GPS Pinpoint Tool (Map Pin-Picker)"):
-        st.caption("Click anywhere on the map to pinpoint an exact pickup or drop-off location.")
-        picker_m = folium.Map(location=[6.9202, 79.8600], zoom_start=11, tiles="OpenStreetMap")
-        last_click_coords = st.session_state.get("picker_last_coords")
-        if last_click_coords:
-            folium.Marker(
-                [last_click_coords[0], last_click_coords[1]],
-                popup="Selected Pinpoint",
-                icon=folium.Icon(color="blue", icon="map-pin", prefix="fa")
-            ).add_to(picker_m)
-            
-        map_click = st_folium(
-            picker_m,
-            key="location_picker_map",
-            height=240,
-            use_container_width=True,
-            returned_objects=["last_clicked"]
-        )
-        
-        if map_click and map_click.get("last_clicked"):
-            lat = map_click["last_clicked"]["lat"]
-            lng = map_click["last_clicked"]["lng"]
-            coord_str = f"{lat:.5f}, {lng:.5f}"
-            st.session_state["picker_last_coords"] = (lat, lng)
-            st.success(f"📍 Selected: **`{coord_str}`**")
-            btn_cols = st.columns(4)
-            with btn_cols[0]:
-                st.button("Set Pickup", key="btn_set_pickup", on_click=cb_set_pickup, args=(coord_str,))
-            with btn_cols[1]:
-                st.button("Set Pass 1", key="btn_set_p1", on_click=cb_set_passenger_drop, args=(1, coord_str))
-            with btn_cols[2]:
-                st.button("Set Pass 2", key="btn_set_p2", on_click=cb_set_passenger_drop, args=(2, coord_str))
-            with btn_cols[3]:
-                st.button("Set Pass 3", key="btn_set_p3", on_click=cb_set_passenger_drop, args=(3, coord_str))
+    st.markdown("""
+    <div style="background: rgba(66, 138, 255, 0.08); border: 1px dashed rgba(66, 138, 255, 0.3); border-radius: 10px; padding: 12px 16px; margin-top: 10px; display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 20px;">🗺️</span>
+        <div>
+            <div style="font-weight: 700; color: #82B1FF; font-size: 13px;">Need to Pinpoint Locations on the Map?</div>
+            <div style="font-size: 12px; color: #94A3B8;">Switch to the <b>'🗺️ 2. Live Transit Map & Tap-to-Pin'</b> tab above to drop interactive GPS pins anywhere across Sri Lanka and auto-assign locations with 1 tap.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -1713,8 +1722,7 @@ if submitted:
                 st.error("The routing engine could not map a driving path between these locations. Check the location names or use the Map Pin-Picker.")
 
 
-# Right Column: Map & Route Intelligence
-with col_map:
+    # If a trip has been dispatched, render the full Route Intelligence Deck inside Tab 1
     if st.session_state.trip_result:
         res = st.session_state.trip_result
         distance_km = res["distance_km"]
@@ -1727,7 +1735,7 @@ with col_map:
         log_success = res["log_success"]
         
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(66, 138, 255, 0.12) 100%); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(66, 138, 255, 0.12) 100%); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; margin-top: 16px; margin-bottom: 16px;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 20px;">✅</span>
                 <div>
@@ -1741,15 +1749,17 @@ with col_map:
         </div>
         """, unsafe_allow_html=True)
         
-        # PickMe style stats
-        m1, m2, m3, m4 = st.columns(4)
-        with m1:
+        # Responsive 2x2 stats grid
+        m_row1_1, m_row1_2 = st.columns(2)
+        with m_row1_1:
             st.metric("Total Distance", f"{distance_km} km")
-        with m2:
+        with m_row1_2:
             st.metric("Est. Driving Time", duration_str)
-        with m3:
+            
+        m_row2_1, m_row2_2 = st.columns(2)
+        with m_row2_1:
             st.metric("Drop-off Stops", f"{len(dropoff_stops)} Passengers")
-        with m4:
+        with m_row2_2:
             st.metric("Routing Engine", engine, delta="Live Traffic" if "Google" in engine else None)
         
         # Fare Estimate
@@ -1765,7 +1775,7 @@ with col_map:
             </div>
             """, unsafe_allow_html=True)
         
-        # Interactive Navigation Map
+        # Interactive Navigation Map inside Dispatch Tab
         st.markdown("##### 🗺️ Real-time Interactive Route Map")
         center_lat = sum(p["lat"] for p in ordered_points) / len(ordered_points)
         center_lon = sum(p["lon"] for p in ordered_points) / len(ordered_points)
@@ -1844,26 +1854,24 @@ with col_map:
         
         st_folium(
             m,
-            key="trip_optimized_map",
+            key="trip_optimized_map_dispatch",
             use_container_width=True,
-            height=440,
+            height=420,
             returned_objects=[]
         )
 
-        # Passenger Sequence Flow
+        # Passenger Sequence Flow (Mobile-friendly vertical cards)
         st.markdown("##### 📍 Passenger Drop-off Itinerary")
-        itinerary_cols = st.columns(len(ordered_points))
         for idx, loc in enumerate(ordered_points):
-            with itinerary_cols[idx]:
-                if idx == 0:
-                    st.success(f"**🚖 Origin**\n\n{loc['address'][:35]}...")
-                else:
-                    leg_info = ""
-                    if idx - 1 < len(legs):
-                        leg_d = round(legs[idx - 1]["distance"] / 1000, 1)
-                        leg_t = round(legs[idx - 1]["duration"] / 60)
-                        leg_info = f"\n\n🚗 *+{leg_d} km (~{leg_t}m)*"
-                    st.info(f"**📍 Stop {idx}: {loc['name']}**\n\n{loc['address'][:30]}...{leg_info}")
+            if idx == 0:
+                st.success(f"**🚖 Origin Pickup:** {loc['address']}")
+            else:
+                leg_info = ""
+                if idx - 1 < len(legs):
+                    leg_d = round(legs[idx - 1]["distance"] / 1000, 1)
+                    leg_t = round(legs[idx - 1]["duration"] / 60)
+                    leg_info = f" • *+{leg_d} km (~{leg_t} mins)*"
+                st.info(f"**📍 Stop {idx} — {loc['name']}**{leg_info}\n\n{loc['address']}")
 
         # --- Official Corporate Dispatch Manifest & End-of-Trip Report ---
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1943,6 +1951,96 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
             
         st.markdown('</div>', unsafe_allow_html=True)
 
+
+# --- Tab 2: Dedicated Live Transit Map & Tap-to-Pin Tool ---
+with tab_map:
+    if st.session_state.trip_result:
+        res = st.session_state.trip_result
+        distance_km = res["distance_km"]
+        duration_str = res["duration_str"]
+        ordered_points = res["ordered_points"]
+        dropoff_stops = res["dropoff_stops"]
+        route_geojson = res["route_geojson"]
+        legs = res["legs"]
+        engine = res.get("engine", "Google Maps")
+
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(66, 138, 255, 0.12) 100%); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 20px;">🗺️</span>
+                <div>
+                    <div style="font-weight: 700; color: #F8FAFC; font-size: 15px;">Active Dispatched Corridor Map</div>
+                    <div style="color: #94A3B8; font-size: 12px;">{distance_km} km total driving distance &bull; Estimated driving time {duration_str}</div>
+                </div>
+            </div>
+            <span style="background: rgba(16, 185, 129, 0.2); color: #34D399; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 6px; text-transform: uppercase;">
+                Active Corridor
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        center_lat = sum(p["lat"] for p in ordered_points) / len(ordered_points)
+        center_lon = sum(p["lon"] for p in ordered_points) / len(ordered_points)
+        m_tab = folium.Map(location=[center_lat, center_lon], zoom_start=12, tiles="OpenStreetMap")
+        
+        folium.GeoJson(
+            route_geojson,
+            style_function=lambda x: {'color': '#0C2340', 'weight': 9, 'opacity': 0.35},
+            name="Route Glow"
+        ).add_to(m_tab)
+        folium.GeoJson(
+            route_geojson,
+            style_function=lambda x: {'color': '#0066FF', 'weight': 5, 'opacity': 0.95},
+            name="Navigation Path"
+        ).add_to(m_tab)
+        
+        drop_colors = ["#EF4123", "#428AFF", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4"]
+        for idx, loc in enumerate(ordered_points):
+            if idx == 0:
+                badge_html = """
+                <div style="background: #10B981; color: white; border: 2px solid white; border-radius: 16px; padding: 4px 10px; font-family: -apple-system, sans-serif; font-size: 11px; font-weight: 700; box-shadow: 0 4px 10px rgba(0,0,0,0.35); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
+                    <span>🚖</span><span>PICKUP</span>
+                </div>
+                """
+                folium.Marker(
+                    [loc["lat"], loc["lon"]],
+                    icon=folium.DivIcon(html=badge_html, icon_size=(90, 30), icon_anchor=(45, 15)),
+                    tooltip=f"🚖 Pickup: {loc['address']}"
+                ).add_to(m_tab)
+            else:
+                color = drop_colors[(idx - 1) % len(drop_colors)]
+                badge_html = f"""
+                <div style="background: {color}; color: white; border: 2px solid white; border-radius: 16px; padding: 4px 10px; font-family: -apple-system, sans-serif; font-size: 11px; font-weight: 700; box-shadow: 0 4px 10px rgba(0,0,0,0.35); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
+                    <span style="background: rgba(255,255,255,0.28); border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px;">{idx}</span>
+                    <span>👤 {loc['name']}</span>
+                </div>
+                """
+                folium.Marker(
+                    [loc["lat"], loc["lon"]],
+                    icon=folium.DivIcon(html=badge_html, icon_size=(120, 30), icon_anchor=(60, 15)),
+                    tooltip=f"📍 Stop {idx}: {loc['name']} ({loc['address']})"
+                ).add_to(m_tab)
+        
+        all_lats = [loc["lat"] for loc in ordered_points]
+        all_lons = [loc["lon"] for loc in ordered_points]
+        m_tab.fit_bounds([[min(all_lats), min(all_lons)], [max(all_lats), max(all_lons)]], padding=(45, 45))
+        
+        st_folium(
+            m_tab,
+            key="trip_optimized_map_tab",
+            use_container_width=True,
+            height=480,
+            returned_objects=[]
+        )
+
+        btn_t1, btn_t2 = st.columns(2)
+        with btn_t1:
+            if st.button("📍 Reset to Tap-to-Pin Tool", key="btn_reset_to_pin_picker", use_container_width=True):
+                st.session_state.trip_result = None
+                st.rerun()
+        with btn_t2:
+            st.caption("Switch back to '🚖 1. Route & Passenger Dispatch' to modify stops or download manifest.")
+
     else:
         # Check if user has entered pickup or passenger locations for live preview
         pickup_raw = st.session_state.get("pickup_address", "").strip()
@@ -1959,22 +2057,22 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
 
         if pickup_pos:
             header_status = '<span style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.35); color: #34D399; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px;">📍 ORIGIN PINPOINTED</span>'
-            subtitle_txt = f"Origin located at <b>{pickup_raw}</b>. Select passengers on the left, then click <b>'🚀 Optimize & Dispatch Route'</b> to calculate live GPS corridor."
+            subtitle_txt = f"Origin located at <b>{pickup_raw}</b>. Tap on the map to place pins, then switch to Tab 1 to optimize and dispatch."
             center_lat, center_lon = pickup_pos
             zoom_lvl = 13 if not preview_stops else 12
         else:
             header_status = '<span style="background: rgba(66, 138, 255, 0.15); border: 1px solid rgba(66, 138, 255, 0.35); color: #82B1FF; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px;">READY FOR ROUTING</span>'
-            subtitle_txt = "Configure pickup and passengers on the left. The AI will forecast drop-offs and generate live GPS navigation polylines."
+            subtitle_txt = "Tap or click anywhere in Sri Lanka on the map below to drop an interactive pin and instantly assign your pickup or passenger drop-offs."
             center_lat, center_lon = 6.915, 79.88
             zoom_lvl = 12
 
         st.markdown(f"""
-        <div style="background: rgba(16, 22, 34, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 20px; margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <div style="font-weight: 700; color: #F8FAFC; font-size: 16px;">🗺️ Colombo Corporate Hub & Transit Overview</div>
+        <div style="background: rgba(16, 22, 34, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <div style="font-weight: 700; color: #F8FAFC; font-size: 16px;">🗺️ Colombo Hub & Island-Wide Pin-Picker</div>
                 {header_status}
             </div>
-            <p style="color: #94A3B8; font-size: 13px; margin: 0 0 4px 0;">
+            <p style="color: #94A3B8; font-size: 12px; margin: 0;">
                 {subtitle_txt}
             </p>
         </div>
@@ -2085,7 +2183,7 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
             default_m,
             key=f"default_overview_map_{abs(hash(str(pickup_pos) + str(len(preview_stops))))}{pin_key_tag}",
             use_container_width=True,
-            height=460,
+            height=480,
             returned_objects=["last_clicked"]
         )
         
@@ -2137,9 +2235,9 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
             </div>
             """, unsafe_allow_html=True)
             
-            # Action buttons with Streamlit-safe callbacks (prevents StreamlitWidgetAlreadyInstantiatedError)
-            col_clk1, col_clk2, col_clk3, col_clk4 = st.columns([1.5, 1.2, 1.2, 0.8])
-            with col_clk1:
+            # Action buttons with responsive 2x2 layout for mobile & desktop
+            btn_r1_c1, btn_r1_c2 = st.columns(2)
+            with btn_r1_c1:
                 st.button(
                     "🚖 Set as Pickup",
                     key="btn_pin_to_pickup",
@@ -2148,7 +2246,7 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
                     use_container_width=True,
                     help="Assign this pin location as the trip Pickup Address"
                 )
-            with col_clk2:
+            with btn_r1_c2:
                 st.button(
                     "🎯 Pass 1 Drop",
                     key="btn_pin_to_p1",
@@ -2157,7 +2255,9 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
                     use_container_width=True,
                     help="Assign this pin location as Passenger 1 Drop-off"
                 )
-            with col_clk3:
+
+            btn_r2_c1, btn_r2_c2 = st.columns(2)
+            with btn_r2_c1:
                 if num_passengers >= 2:
                     st.button(
                         "🎯 Pass 2 Drop",
@@ -2175,9 +2275,9 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
                         args=(HQ_ADDRESS,),
                         use_container_width=True
                     )
-            with col_clk4:
+            with btn_r2_c2:
                 st.button(
-                    "✖ Clear",
+                    "✖ Clear Pin",
                     key="btn_clear_pin",
                     on_click=cb_clear_active_pin,
                     use_container_width=True,
@@ -2187,9 +2287,9 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
             # If 3 or more passengers, provide additional drop buttons
             if num_passengers >= 3:
                 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-                p_extra_cols = st.columns(num_passengers - 2)
+                p_extra_cols = st.columns(min(num_passengers - 2, 2))
                 for e_i, p_idx in enumerate(range(3, num_passengers + 1)):
-                    with p_extra_cols[e_i]:
+                    with p_extra_cols[e_i % len(p_extra_cols)]:
                         st.button(
                             f"🎯 Pass {p_idx} Drop",
                             key=f"btn_pin_to_p{p_idx}",
@@ -2197,11 +2297,12 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
                             args=(p_idx,),
                             use_container_width=True
                         )
+            st.caption("✨ Location applied! Switch to the '🚖 1. Route & Passenger Dispatch' tab above to dispatch your trip.")
         else:
             st.markdown("""
-            <div style="background: rgba(16, 22, 34, 0.5); border: 1px dashed rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 10px 14px; margin-top: 10px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 16px;">💡</span>
-                <span style="font-size: 12px; color: #94A3B8;"><b>PickMe / Google Maps Selector:</b> Tap or click anywhere on the map above to drop an interactive pin and instantly assign your Pickup or Passenger Drop-offs.</span>
+            <div style="background: rgba(16, 22, 34, 0.5); border: 1px dashed rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 12px 16px; margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">💡</span>
+                <span style="font-size: 12px; color: #94A3B8;"><b>Interactive Tap-to-Pin:</b> Tap or click anywhere on the map above to drop a PickMe pin and instantly assign your Pickup or Passenger Drop-offs with 1 tap.</span>
             </div>
             """, unsafe_allow_html=True)
         

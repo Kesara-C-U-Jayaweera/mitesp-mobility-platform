@@ -25,13 +25,34 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
     }
 
-    /* Top Streamlit Header */
+    /* Top Streamlit Header Clearance */
     header[data-testid="stHeader"] {
-        background-color: #07090E !important;
+        background-color: rgba(7, 9, 14, 0.95) !important;
+        backdrop-filter: blur(14px) !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        z-index: 99999 !important;
     }
     header[data-testid="stHeader"] * {
         color: #F8FAFC !important;
+    }
+
+    .block-container {
+        padding-top: 5.5rem !important;
+        padding-bottom: 3rem !important;
+        max-width: 100% !important;
+    }
+
+    @media (max-width: 768px) {
+        .block-container {
+            padding-top: 6.2rem !important;
+            padding-left: 0.8rem !important;
+            padding-right: 0.8rem !important;
+        }
+    }
+
+    /* Hide intrusive Streamlit form input instructions that cause text overlap on mobile */
+    div[data-testid="InputInstructions"], [data-testid="InputInstructions"] {
+        display: none !important;
     }
 
     .stApp {

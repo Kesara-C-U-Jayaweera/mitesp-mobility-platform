@@ -97,9 +97,29 @@ def render_login_screen():
     """Renders a sleek, branded MillenniumIT ESP login portal."""
     st.markdown("""
     <style>
+    header[data-testid="stHeader"] {
+        background: rgba(7, 9, 14, 0.95) !important;
+        backdrop-filter: blur(14px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    .block-container {
+        padding-top: 5.5rem !important;
+        padding-bottom: 3rem !important;
+    }
+    @media (max-width: 768px) {
+        .block-container {
+            padding-top: 6.2rem !important;
+            padding-left: 0.8rem !important;
+            padding-right: 0.8rem !important;
+        }
+    }
+    /* Hide intrusive Streamlit form input instructions that cause text overlap on mobile */
+    div[data-testid="InputInstructions"], [data-testid="InputInstructions"] {
+        display: none !important;
+    }
     .login-container {
         max-width: 480px;
-        margin: 1.5rem auto 1rem auto;
+        margin: 1rem auto 1rem auto;
         padding: 2rem 1.8rem;
         background: linear-gradient(180deg, rgba(15, 22, 38, 0.98) 0%, rgba(7, 9, 14, 0.99) 100%);
         border: 1px solid #24334C;
@@ -140,8 +160,8 @@ def render_login_screen():
         st.markdown(login_card_html, unsafe_allow_html=True)
 
         with st.form("enterprise_login_form"):
-            email = st.text_input("Corporate Email / Username", placeholder="e.g. ceo@mitesp.com, dispatch@mitesp.com")
-            password = st.text_input("Password", type="password", placeholder="Enter your corporate password")
+            email = st.text_input("Corporate Email / Username", placeholder="e.g. ceo@mitesp.com")
+            password = st.text_input("Password", type="password", placeholder="Enter password")
             submit_btn = st.form_submit_button("🔐 Sign In with Corporate SSO", use_container_width=True)
 
             if submit_btn:

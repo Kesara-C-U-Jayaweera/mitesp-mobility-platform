@@ -36,15 +36,15 @@ st.markdown("""
         color: #F8FAFC !important;
     }
 
-    .block-container {
+    .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
         padding-top: 5.5rem !important;
         padding-bottom: 3rem !important;
         max-width: 100% !important;
     }
 
     @media (max-width: 768px) {
-        .block-container {
-            padding-top: 6.2rem !important;
+        .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
+            padding-top: 7rem !important;
             padding-left: 0.8rem !important;
             padding-right: 0.8rem !important;
         }
@@ -204,8 +204,8 @@ st.markdown("""
 
     /* Mobile Responsiveness & PWA Optimization */
     @media (max-width: 768px) {
-        .block-container {
-            padding-top: 1rem !important;
+        .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
+            padding-top: 7rem !important;
             padding-left: 0.6rem !important;
             padding-right: 0.6rem !important;
         }
@@ -398,6 +398,9 @@ df_raw = load_data()
 if df_raw.empty:
     st.error("No trip data found! Place Excel/CSV files in the data/ folder.")
     st.stop()
+
+# Physical spacer to guarantee complete clearance under Streamlit Cloud fixed header bar
+st.markdown('<div class="header-clearance-spacer" style="height: 56px; width: 100%; display: block;"></div>', unsafe_allow_html=True)
 
 # --- MillenniumIT ESP Corporate Header Banner ---
 total_trips = len(df_raw)

@@ -42,15 +42,15 @@ st.markdown("""
         color: #F8FAFC !important;
     }
 
-    .block-container {
+    .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
         padding-top: 5.5rem !important;
         padding-bottom: 3rem !important;
         max-width: 100% !important;
     }
 
     @media (max-width: 768px) {
-        .block-container {
-            padding-top: 6.2rem !important;
+        .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
+            padding-top: 7rem !important;
             padding-left: 0.8rem !important;
             padding-right: 0.8rem !important;
         }
@@ -252,8 +252,8 @@ st.markdown("""
 
     /* Mobile Responsiveness & PWA Optimization */
     @media (max-width: 768px) {
-        .block-container {
-            padding-top: 1rem !important;
+        .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
+            padding-top: 7rem !important;
             padding-left: 0.6rem !important;
             padding-right: 0.6rem !important;
         }
@@ -1145,6 +1145,9 @@ v_num = ml_meta.get("version", 1) if ml_meta else 1
 n_p = len(ml_encoders['passenger_encoder'].classes_) if ml_encoders else 0
 acc_val = ml_meta.get("validation_accuracy", ml_meta.get("train_accuracy", 0)) if ml_meta else 0
 
+# Physical spacer to guarantee complete clearance under Streamlit Cloud fixed header bar
+st.markdown('<div class="header-clearance-spacer" style="height: 56px; width: 100%; display: block;"></div>', unsafe_allow_html=True)
+
 # Executive Role Spotlight View
 if st.session_state.get("user_role") == "Executive":
     st.markdown("""
@@ -1341,6 +1344,18 @@ for i in range(1, 7):
 if "active_map_pin" not in st.session_state:
     st.session_state.active_map_pin = None
 
+if "active_tab" not in st.session_state:
+    st.session_state["active_tab"] = "dispatch"
+
+if "map_target" not in st.session_state:
+    st.session_state["map_target"] = "pickup"
+
+if "last_registered_click_lat" not in st.session_state:
+    st.session_state["last_registered_click_lat"] = None
+
+if "last_registered_click_lng" not in st.session_state:
+    st.session_state["last_registered_click_lng"] = None
+
 # Streamlit-safe state update callbacks (prevents StreamlitWidgetAlreadyInstantiatedError)
 def cb_set_pickup(addr):
     st.session_state["pickup_address"] = addr
@@ -1364,6 +1379,7 @@ def cb_clear_active_pin():
     st.session_state["active_map_pin"] = None
     st.session_state["last_registered_click_lat"] = None
     st.session_state["last_registered_click_lng"] = None
+    st.session_state["pin_success_msg"] = None
 
 def cb_select_recent_drop(idx):
     sel = st.session_state.get(f"p{idx}_recent_sel")
@@ -1384,23 +1400,50 @@ def cb_autofill_staff_drops(employee_list):
             st.session_state[f"p{s_idx}_drop"] = p_loc
             st.session_state[f"p{s_idx}_ml_notice"] = f"🎯 Auto-filled for {m_name}: {p_loc}"
 
-# Default num_passengers fallback so both tabs always have access
+# Default num_passengers fallback so both views always have access
 num_passengers = st.session_state.get("num_passengers_val", 3)
 
-# --- Responsive Mission Control Workspace (Tabs for Clean Mobile & Desktop UX) ---
-tab_dispatch, tab_map = st.tabs([
-    "🚖 1. Route & Passenger Dispatch", 
-    "🗺️ 2. Live Transit Map & Tap-to-Pin"
-])
+TAB_DISPATCH = "dispatch"
+TAB_MAP = "map"
 
-with tab_dispatch:
+# --- Persistent Mission Control Navigation (Preserves Tab Across Reruns) ---
+c_nav1, c_nav2 = st.columns(2)
+with c_nav1:
+    is_active_disp = (st.session_state.get("active_tab", TAB_DISPATCH) == TAB_DISPATCH)
+    if st.button(
+        "🚖 1. Route & Passenger Dispatch",
+        key="nav_tab_disp",
+        type="primary" if is_active_disp else "secondary",
+        use_container_width=True
+    ):
+        st.session_state["active_tab"] = TAB_DISPATCH
+        st.rerun()
+
+with c_nav2:
+    is_active_map = (st.session_state.get("active_tab") == TAB_MAP)
+    pin_badge = " • 📍 PIN ACTIVE" if st.session_state.get("active_map_pin") else ""
+    if st.button(
+        f"🗺️ 2. Live Transit Map{pin_badge}",
+        key="nav_tab_map",
+        type="primary" if is_active_map else "secondary",
+        use_container_width=True
+    ):
+        st.session_state["active_tab"] = TAB_MAP
+        st.rerun()
+
+if st.session_state.get("active_tab", TAB_DISPATCH) == TAB_DISPATCH:
     # 📍 Card 1: Pickup Location
     st.markdown('<div class="mit-card"><div class="mit-card-title">📍 Step 1: Pickup Location (Anywhere in Sri Lanka)</div>', unsafe_allow_html=True)
-    col_p_in, col_p_hq = st.columns([3.3, 1.2])
+    col_p_in, col_p_map, col_p_hq = st.columns([2.5, 1.1, 1.1])
     with col_p_in:
         pickup = st.text_input("Pickup Address", key="pickup_address", placeholder="e.g. Colombo 03, Kandy, or tap map", label_visibility="collapsed")
+    with col_p_map:
+        if st.button("🗺️ Pick Map", key="btn_pick_pickup_map", help="Open live map to tap and pin pickup location", use_container_width=True):
+            st.session_state["map_target"] = "pickup"
+            st.session_state["active_tab"] = TAB_MAP
+            st.rerun()
     with col_p_hq:
-        st.button("🏢 Set to HQ", on_click=cb_set_pickup, args=(HQ_ADDRESS,), help="Quick-set pickup to MillenniumIT ESP Headquarters (Colombo 03)", use_container_width=True)
+        st.button("🏢 Set HQ", on_click=cb_set_pickup, args=(HQ_ADDRESS,), help="Quick-set pickup to MillenniumIT ESP Headquarters (Colombo 03)", use_container_width=True)
     
     is_hq_pickup = pickup and ("450d" in str(pickup).lower() or "de mel" in str(pickup).lower() or str(pickup).strip() == HQ_ADDRESS)
     if is_hq_pickup:
@@ -1491,7 +1534,7 @@ with tab_dispatch:
 
     for i in range(1, num_passengers + 1):
         st.markdown(f'<div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px; margin-bottom: 10px;">', unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1.1, 1.25, 0.45])
+        col1, col2, col3, col4 = st.columns([1.1, 1.2, 0.45, 0.45])
         with col1:
             st.selectbox(
                 f"Passenger {i} Name",
@@ -1510,7 +1553,13 @@ with tab_dispatch:
             )
         with col3:
             st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            st.button("🏢 HQ", key=f"btn_set_hq_p{i}", on_click=cb_set_passenger_drop, args=(i, HQ_ADDRESS), help="Quick set drop-off to MIT ESP HQ (Colombo 03)", use_container_width=True)
+            if st.button("🗺️", key=f"btn_map_p{i}", help=f"Pin Passenger {i} Drop-off on the live map", use_container_width=True):
+                st.session_state["map_target"] = f"p{i}"
+                st.session_state["active_tab"] = TAB_MAP
+                st.rerun()
+        with col4:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            st.button("🏢", key=f"btn_set_hq_p{i}", on_click=cb_set_passenger_drop, args=(i, HQ_ADDRESS), help="Quick set drop-off to MIT ESP HQ (Colombo 03)", use_container_width=True)
         
         # Recent Locations Dropdown for selected employee
         p_name = st.session_state.get(f"p{i}_name")
@@ -1952,8 +2001,8 @@ MillenniumIT ESP • Corporate Mobility & Dispatch System • System Generated
         st.markdown('</div>', unsafe_allow_html=True)
 
 
-# --- Tab 2: Dedicated Live Transit Map & Tap-to-Pin Tool ---
-with tab_map:
+else:
+    # --- Tab 2: Dedicated Live Transit Map & Tap-to-Pin Tool ---
     if st.session_state.trip_result:
         res = st.session_state.trip_result
         distance_km = res["distance_km"]
@@ -2027,19 +2076,21 @@ with tab_map:
         
         st_folium(
             m_tab,
-            key="trip_optimized_map_tab",
+            key="trip_optimized_map_view",
             use_container_width=True,
-            height=480,
+            height=460,
             returned_objects=[]
         )
 
         btn_t1, btn_t2 = st.columns(2)
         with btn_t1:
-            if st.button("📍 Reset to Tap-to-Pin Tool", key="btn_reset_to_pin_picker", use_container_width=True):
+            if st.button("📍 Switch to Tap-to-Pin Tool", key="btn_reset_to_pin_picker", use_container_width=True):
                 st.session_state.trip_result = None
                 st.rerun()
         with btn_t2:
-            st.caption("Switch back to '🚖 1. Route & Passenger Dispatch' to modify stops or download manifest.")
+            if st.button("👈 Back to Dispatch & Stops", key="btn_back_to_disp_tab_routed", use_container_width=True):
+                st.session_state["active_tab"] = TAB_DISPATCH
+                st.rerun()
 
     else:
         # Check if user has entered pickup or passenger locations for live preview
@@ -2055,33 +2106,67 @@ with tab_map:
                 if c:
                     preview_stops.append({"name": p_name, "address": p_drop, "pos": c, "idx": p_i})
 
-        if pickup_pos:
-            header_status = '<span style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.35); color: #34D399; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px;">📍 ORIGIN PINPOINTED</span>'
-            subtitle_txt = f"Origin located at <b>{pickup_raw}</b>. Tap on the map to place pins, then switch to Tab 1 to optimize and dispatch."
-            center_lat, center_lon = pickup_pos
-            zoom_lvl = 13 if not preview_stops else 12
-        else:
-            header_status = '<span style="background: rgba(66, 138, 255, 0.15); border: 1px solid rgba(66, 138, 255, 0.35); color: #82B1FF; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px;">READY FOR ROUTING</span>'
-            subtitle_txt = "Tap or click anywhere in Sri Lanka on the map below to drop an interactive pin and instantly assign your pickup or passenger drop-offs."
-            center_lat, center_lon = 6.915, 79.88
-            zoom_lvl = 12
+        # Target Selector Deck (Above Map)
+        target_names = {
+            "pickup": "🚖 Pickup Origin Location"
+        }
+        for p_i in range(1, num_passengers + 1):
+            p_name = st.session_state.get(f"p{p_i}_name") or f"Passenger {p_i}"
+            target_names[f"p{p_i}"] = f"👤 Pass {p_i} Drop ({p_name})"
+
+        target_keys = list(target_names.keys())
+        cur_target = st.session_state.get("map_target", "pickup")
+        cur_idx = target_keys.index(cur_target) if cur_target in target_keys else 0
 
         st.markdown(f"""
-        <div style="background: rgba(16, 22, 34, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px; margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-                <div style="font-weight: 700; color: #F8FAFC; font-size: 16px;">🗺️ Colombo Hub & Island-Wide Pin-Picker</div>
-                {header_status}
+        <div style="background: rgba(16, 22, 34, 0.95); border: 1.5px solid #EF4123; border-radius: 14px; padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div style="font-weight: 800; color: #F8FAFC; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 20px;">🗺️</span>
+                    <span>Tap Anywhere on the Map to Pin & Auto-Fill Location</span>
+                </div>
+                <span style="background: rgba(239, 65, 35, 0.2); color: #FF7A63; border: 1px solid rgba(239, 65, 35, 0.4); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px;">
+                    TAP-TO-PIN ACTIVE
+                </span>
             </div>
-            <p style="color: #94A3B8; font-size: 12px; margin: 0;">
-                {subtitle_txt}
+            <p style="color: #94A3B8; font-size: 12px; margin: 6px 0 0 0;">
+                Press or click any street, town, or junction across Sri Lanka. The pin will appear immediately and auto-populate your selected stop.
             </p>
         </div>
         """, unsafe_allow_html=True)
+
+        col_sel_target, col_btn_back = st.columns([2.6, 1.2])
+        with col_sel_target:
+            new_target = st.selectbox(
+                "🎯 Field to Auto-Assign on Map Tap:",
+                options=target_keys,
+                index=cur_idx,
+                format_func=lambda k: target_names[k],
+                key="map_target_field_selector",
+                help="Choose which field is automatically filled when you tap anywhere on the map"
+            )
+            st.session_state["map_target"] = new_target
+
+        with col_btn_back:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            if st.button("👈 Return to Dispatch Form", key="btn_back_to_disp_above_map", use_container_width=True):
+                st.session_state["active_tab"] = TAB_DISPATCH
+                st.rerun()
+
+        center_lat, center_lon = (pickup_pos[0], pickup_pos[1]) if pickup_pos else (6.915, 79.88)
+        zoom_lvl = 13
         
+        active_pin = st.session_state.get("active_map_pin")
+        if active_pin:
+            center_lat = active_pin["lat"]
+            center_lon = active_pin["lng"]
+            zoom_lvl = 14
+
         default_m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom_lvl, tiles="OpenStreetMap")
         
+        # Corporate Headquarters & Regional Hubs
         hubs = [
-            {"name": "MIT ESP HQ (Colombo 03)", "pos": [6.9075, 79.8530], "type": "Corporate Headquarters", "color": "#EF4123"},
+            {"name": "MIT ESP HQ (Colombo 03)", "pos": [6.9075, 79.8530], "type": "Corporate HQ", "color": "#EF4123"},
             {"name": "MIT ESP Malabe Campus", "pos": [6.9034, 79.9547], "type": "Tech Campus", "color": "#FF7A63"},
             {"name": "Sampath Bank Head Office", "pos": [6.9271, 79.8483], "type": "Financial Hub", "color": "#428AFF"},
             {"name": "World Trade Center Colombo", "pos": [6.9334, 79.8436], "type": "Commercial Hub", "color": "#10B981"},
@@ -2130,7 +2215,6 @@ with tab_map:
             ).add_to(default_m)
 
         # Check if an interactive PickMe pin is currently placed
-        active_pin = st.session_state.get("active_map_pin")
         if active_pin:
             pin_lat = active_pin["lat"]
             pin_lng = active_pin["lng"]
@@ -2140,54 +2224,57 @@ with tab_map:
             # 1. Location accuracy radar pulse circle (PickMe / Google Maps style)
             folium.Circle(
                 location=[pin_lat, pin_lng],
-                radius=65,
+                radius=110,
                 color="#EF4123",
                 weight=2,
                 fill=True,
                 fill_color="#EF4123",
-                fill_opacity=0.18
+                fill_opacity=0.25
             ).add_to(default_m)
             
-            # 2. PickMe / Google Maps Bouncing Teardrop Pin Marker with Label
+            # 2. Solid high-contrast circle marker (Guaranteed 100% visible on every device/canvas)
+            folium.CircleMarker(
+                location=[pin_lat, pin_lng],
+                radius=10,
+                color="#FFFFFF",
+                weight=3,
+                fill=True,
+                fill_color="#EF4123",
+                fill_opacity=1.0,
+                tooltip=f"📍 Pin: {pin_addr}"
+            ).add_to(default_m)
+            
+            # 3. Standard Leaflet Marker with Red Icon & Popup
+            folium.Marker(
+                [pin_lat, pin_lng],
+                icon=folium.Icon(color="red", icon="crosshairs", prefix="fa"),
+                tooltip=f"📍 Selected Pin: {pin_addr}",
+                popup=folium.Popup(f"<b>📍 Active Pin:</b><br>{pin_addr}", max_width=240)
+            ).add_to(default_m)
+            
+            # 4. Floating Badge with Target & Address
+            target_short = "Pickup" if cur_target == "pickup" else f"Pass {cur_target[1:]}"
             pin_badge_html = f"""
-            <div style="display: flex; flex-direction: column; align-items: center; cursor: grab; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));">
-                <div style="background: rgba(10, 15, 29, 0.96); color: #FFFFFF; border: 1.5px solid #EF4123; border-radius: 14px; padding: 4px 10px; font-family: -apple-system, sans-serif; font-size: 11px; font-weight: 800; white-space: nowrap; margin-bottom: 3px; display: flex; align-items: center; gap: 5px;">
-                    <span style="color: #EF4123;">📍</span>
-                    <span>{pin_addr[:28]}</span>
-                </div>
-                <div style="width: 34px; height: 34px; background: radial-gradient(circle, #EF4123 45%, #B91C1C 100%); border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid #FFFFFF; box-shadow: 0 4px 14px rgba(239, 65, 35, 0.8); display: flex; align-items: center; justify-content: center;">
-                    <div style="width: 10px; height: 10px; background: #FFFFFF; border-radius: 50%; transform: rotate(45deg);"></div>
-                </div>
+            <div style="background: #EF4123; color: white; border: 2px solid white; border-radius: 14px; padding: 4px 10px; font-family: -apple-system, sans-serif; font-size: 11px; font-weight: 800; box-shadow: 0 4px 12px rgba(239,65,35,0.7); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
+                <span>📍</span>
+                <span>{target_short}: {pin_addr[:26]}</span>
             </div>
             """
             folium.Marker(
                 [pin_lat, pin_lng],
-                icon=folium.DivIcon(html=pin_badge_html, icon_size=(180, 75), icon_anchor=(90, 65)),
-                tooltip=f"📍 PickMe Selected Pin: {pin_addr}",
-                draggable=True
+                icon=folium.DivIcon(html=pin_badge_html, icon_size=(170, 30), icon_anchor=(85, 42))
             ).add_to(default_m)
 
-        if len(all_points) >= 2:
-            lats = [p[0] for p in all_points]
-            lons = [p[1] for p in all_points]
-            default_m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]], padding=(45, 45))
-        elif active_pin:
-            default_m.location = [active_pin["lat"], active_pin["lng"]]
-            default_m.zoom_start = 14
-        elif pickup_pos:
-            default_m.location = pickup_pos
-            default_m.zoom_start = 14
-            
-        pin_key_tag = f"_{round(active_pin['lat'], 4)}_{round(active_pin['lng'], 4)}" if active_pin else ""
+        # STABLE KEY on st_folium prevents iframe tearing/re-creation on reruns
         map_interaction = st_folium(
             default_m,
-            key=f"default_overview_map_{abs(hash(str(pickup_pos) + str(len(preview_stops))))}{pin_key_tag}",
+            key="mitesp_tap_to_pin_map",
             use_container_width=True,
-            height=480,
+            height=460,
             returned_objects=["last_clicked"]
         )
         
-        # When user clicks or taps ANYWHERE on the map in Sri Lanka (PickMe & Google Maps tap-to-pin)
+        # When user clicks or taps ANYWHERE on the map in Sri Lanka
         if map_interaction and map_interaction.get("last_clicked"):
             c_lat = map_interaction["last_clicked"]["lat"]
             c_lng = map_interaction["last_clicked"]["lng"]
@@ -2195,7 +2282,7 @@ with tab_map:
             last_lat = st.session_state.get("last_registered_click_lat")
             last_lng = st.session_state.get("last_registered_click_lng")
             
-            # If this is a new click on the map, update active pin and re-render map with the pin
+            # If this is a new click on the map, update active pin and auto-assign
             if last_lat is None or abs(c_lat - last_lat) > 0.0001 or abs(c_lng - last_lng) > 0.0001:
                 st.session_state["last_registered_click_lat"] = c_lat
                 st.session_state["last_registered_click_lng"] = c_lng
@@ -2205,50 +2292,74 @@ with tab_map:
                     "lng": c_lng,
                     "address": rev_addr
                 }
+                
+                # AUTO-POPULATE THE SELECTED TARGET FIELD IMMEDIATELY
+                tgt = st.session_state.get("map_target", "pickup")
+                if tgt == "pickup":
+                    st.session_state["pickup_address"] = rev_addr
+                    tgt_display = "🚖 Pickup Origin"
+                elif tgt.startswith("p"):
+                    p_num = int(tgt[1:])
+                    st.session_state[f"p{p_num}_drop"] = rev_addr
+                    p_label = st.session_state.get(f"p{p_num}_name") or f"Passenger {p_num}"
+                    tgt_display = f"👤 {p_label}'s Drop-off"
+                else:
+                    st.session_state["pickup_address"] = rev_addr
+                    tgt_display = "🚖 Pickup Origin"
+                    
+                st.session_state["pin_success_msg"] = f"✅ Pin Dropped & Saved to {tgt_display}: {rev_addr}"
                 st.rerun()
         
-        # Instant Toast feedback when a location was applied from the pin
-        if "pin_applied_toast" in st.session_state and st.session_state["pin_applied_toast"]:
-            st.success(st.session_state.pop("pin_applied_toast"))
+        # Success Banner when pin was applied
+        if st.session_state.get("pin_success_msg"):
+            st.success(st.session_state["pin_success_msg"])
             
-        # PickMe-Style Active Pin Control Deck
+        # Active Pin Control Deck
         if active_pin:
             c_lat = active_pin["lat"]
             c_lng = active_pin["lng"]
             rev_addr = active_pin["address"]
+            tgt = st.session_state.get("map_target", "pickup")
+            tgt_display = "🚖 Pickup Origin" if tgt == "pickup" else f"👤 Passenger {tgt[1:]} Drop-off"
             
             st.markdown(f"""
-            <div style="background: rgba(16, 22, 34, 0.95); border: 1.5px solid #EF4123; border-radius: 12px; padding: 12px 16px; margin-top: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+            <div style="background: rgba(16, 22, 34, 0.95); border: 1.5px solid #EF4123; border-radius: 12px; padding: 14px 18px; margin-top: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                     <div>
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <span style="font-size: 16px;">📍</span>
-                            <span style="font-size: 11px; font-weight: 800; color: #EF4123; text-transform: uppercase; letter-spacing: 0.5px;">PickMe Map Pin Active</span>
+                            <span style="font-size: 11px; font-weight: 800; color: #EF4123; text-transform: uppercase; letter-spacing: 0.5px;">Active Pin Saved to {tgt_display}</span>
                         </div>
-                        <div style="font-size: 13px; font-weight: 700; color: #FFFFFF; margin-top: 2px;">{rev_addr}</div>
+                        <div style="font-size: 14px; font-weight: 700; color: #FFFFFF; margin-top: 3px;">{rev_addr}</div>
                         <div style="font-size: 11px; color: #94A3B8; font-family: monospace;">GPS: {c_lat:.5f}, {c_lng:.5f}</div>
                     </div>
-                    <div style="font-size: 11px; color: #34D399; font-weight: 600;">
-                        💡 Choose where to assign this pin:
-                    </div>
+                    <span style="background: rgba(16, 185, 129, 0.15); color: #34D399; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                        SAVED IN DISPATCH FORM
+                    </span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
+            
+            # Primary button to return to dispatch tab immediately
+            if st.button("👉 Return to Route & Passenger Dispatch (Location Saved)", type="primary", use_container_width=True, key="btn_return_disp_after_pin"):
+                st.session_state["active_tab"] = TAB_DISPATCH
+                st.rerun()
+
+            st.markdown("<div style='font-size: 11px; color: #94A3B8; font-weight: 700; text-transform: uppercase; margin-top: 10px; margin-bottom: 6px;'>Or Re-Assign this Pin Location to Another Stop:</div>", unsafe_allow_html=True)
             
             # Action buttons with responsive 2x2 layout for mobile & desktop
             btn_r1_c1, btn_r1_c2 = st.columns(2)
             with btn_r1_c1:
                 st.button(
-                    "🚖 Set as Pickup",
+                    "🚖 Assign to Pickup",
                     key="btn_pin_to_pickup",
-                    type="primary",
                     on_click=cb_apply_active_pin_to_pickup,
                     use_container_width=True,
                     help="Assign this pin location as the trip Pickup Address"
                 )
             with btn_r1_c2:
                 st.button(
-                    "🎯 Pass 1 Drop",
+                    "🎯 Assign to Pass 1",
                     key="btn_pin_to_p1",
                     on_click=cb_apply_active_pin_to_passenger,
                     args=(1,),
@@ -2260,7 +2371,7 @@ with tab_map:
             with btn_r2_c1:
                 if num_passengers >= 2:
                     st.button(
-                        "🎯 Pass 2 Drop",
+                        "🎯 Assign to Pass 2",
                         key="btn_pin_to_p2",
                         on_click=cb_apply_active_pin_to_passenger,
                         args=(2,),
@@ -2269,7 +2380,7 @@ with tab_map:
                     )
                 else:
                     st.button(
-                        "🏢 Set to HQ",
+                        "🏢 Set HQ as Pickup",
                         key="btn_pin_to_hq",
                         on_click=cb_set_pickup,
                         args=(HQ_ADDRESS,),
@@ -2291,18 +2402,17 @@ with tab_map:
                 for e_i, p_idx in enumerate(range(3, num_passengers + 1)):
                     with p_extra_cols[e_i % len(p_extra_cols)]:
                         st.button(
-                            f"🎯 Pass {p_idx} Drop",
+                            f"🎯 Assign to Pass {p_idx}",
                             key=f"btn_pin_to_p{p_idx}",
                             on_click=cb_apply_active_pin_to_passenger,
                             args=(p_idx,),
                             use_container_width=True
                         )
-            st.caption("✨ Location applied! Switch to the '🚖 1. Route & Passenger Dispatch' tab above to dispatch your trip.")
         else:
             st.markdown("""
             <div style="background: rgba(16, 22, 34, 0.5); border: 1px dashed rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 12px 16px; margin-top: 10px; display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 18px;">💡</span>
-                <span style="font-size: 12px; color: #94A3B8;"><b>Interactive Tap-to-Pin:</b> Tap or click anywhere on the map above to drop a PickMe pin and instantly assign your Pickup or Passenger Drop-offs with 1 tap.</span>
+                <span style="font-size: 12px; color: #94A3B8;"><b>Interactive Tap-to-Pin:</b> Tap or click anywhere on the map above to drop a PickMe pin. The address will be reverse-geocoded and saved to your selected stop automatically.</span>
             </div>
             """, unsafe_allow_html=True)
         

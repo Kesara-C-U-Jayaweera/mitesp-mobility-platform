@@ -39,15 +39,15 @@ st.markdown("""
         color: #F8FAFC !important;
     }
 
-    .block-container {
+    .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
         padding-top: 5.5rem !important;
         padding-bottom: 3rem !important;
         max-width: 100% !important;
     }
 
     @media (max-width: 768px) {
-        .block-container {
-            padding-top: 6.2rem !important;
+        .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
+            padding-top: 7rem !important;
             padding-left: 0.8rem !important;
             padding-right: 0.8rem !important;
         }
@@ -334,6 +334,9 @@ unique_locs = trip_df['DROP LOCATION'].dropna().str.strip().nunique() if not tri
 curr_v = latest_meta.get("version", 1)
 test_acc = latest_meta.get("validation_accuracy", 40.6)
 train_acc = latest_meta.get("train_accuracy", 54.5)
+
+# Physical spacer to guarantee complete clearance under Streamlit Cloud fixed header bar
+st.markdown('<div class="header-clearance-spacer" style="height: 56px; width: 100%; display: block;"></div>', unsafe_allow_html=True)
 
 mi_header_html = f"""<div style="background: linear-gradient(135deg, rgba(16, 22, 34, 0.95) 0%, rgba(11, 15, 23, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-top: 3px solid #EF4123; border-radius: 16px; padding: 22px 28px; margin-bottom: 24px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45); backdrop-filter: blur(16px);">
 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">

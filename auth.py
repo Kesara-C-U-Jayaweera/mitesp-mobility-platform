@@ -102,13 +102,13 @@ def render_login_screen():
         backdrop-filter: blur(14px) !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
-    .block-container {
+    .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
         padding-top: 5.5rem !important;
         padding-bottom: 3rem !important;
     }
     @media (max-width: 768px) {
-        .block-container {
-            padding-top: 6.2rem !important;
+        .block-container, [data-testid="stMainBlockContainer"], [data-testid="block-container"] {
+            padding-top: 7rem !important;
             padding-left: 0.8rem !important;
             padding-right: 0.8rem !important;
         }
@@ -141,6 +141,9 @@ def render_login_screen():
     }
     </style>
     """, unsafe_allow_html=True)
+
+    # Physical spacer pushing login screen down past Streamlit Cloud's top navigation bar
+    st.markdown('<div class="header-clearance-spacer" style="height: 56px; width: 100%; display: block;"></div>', unsafe_allow_html=True)
 
     col_l, col_m, col_r = st.columns([1, 2, 1])
     with col_m:
